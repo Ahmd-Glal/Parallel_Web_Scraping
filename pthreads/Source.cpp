@@ -24,10 +24,8 @@ queue answerQueue;
 
 Trie myTrie;
 
-pthread_mutex_t firstMutex;
-pthread_mutex_t secondMutex;
-pthread_mutex_t thirdMutex;
-pthread_mutex_t fourthMutex;
+pthread_mutex_t secuirty;
+
 
 void* parallelScraping(void* rank);
 void Get_args(int argc, char* argv[]);
@@ -108,10 +106,7 @@ int main(int argc, char* argv[]) {
     pthread_t* thread_handles;
     thread_handles = (pthread_t*)malloc(threadCount * sizeof(pthread_t));
 
-    pthread_mutex_init(&firstMutex, NULL);
-    pthread_mutex_init(&secondMutex, NULL);
-    pthread_mutex_init(&thirdMutex, NULL);
-    pthread_mutex_init(&fourthMutex, NULL);
+    pthread_mutex_init(&secuirty, NULL);
 
     for (int thread = 0; thread < threadCount; thread++)
         pthread_create(&thread_handles[thread], NULL, parallelScraping, (void*)thread);
@@ -119,11 +114,7 @@ int main(int argc, char* argv[]) {
     for (int thread = 0; thread < threadCount; thread++)
         pthread_join(thread_handles[thread], NULL);
 
-
-    pthread_mutex_destroy(&firstMutex);
-    pthread_mutex_destroy(&secondMutex);
-    pthread_mutex_destroy(&thirdMutex);
-    pthread_mutex_destroy(&fourthMutex);
+    pthread_mutex_destroy(&secuirty);
 
     free(thread_handles);
     free(chunk.memory);
@@ -140,71 +131,65 @@ void* parallelScraping(void* rank) {
     while (true) {
         char workingURL[301];
         int depth;
-
-        pthread_mutex_lock(&firstMutex);
+        int keepGoing = 1;
+        pthread_mutex_lock(&secuirty);
+        ////////////////////////////////////
         if (queueEmpty(&workingQueue))
             return NULL;
         serve(&workingQueue, workingURL, &depth);
-        pthread_mutex_unlock(&firstMutex);
+        append(&answerQueue, workingURL, depth);
+        if (depth == depthLimit) {
+            keepGoing = 0;
+        }
+        //////////////////////////////
+        pthread_mutex_unlock(&secuirty);
 
-        if (depth >= depthLimit) {
+        if (!keepGoing)continue;
 
-            pthread_mutex_lock(&secondMutex);
-            append(&answerQueue, workingURL, depth);
-            pthread_mutex_unlock(&secondMutex);
+        CURL* curl = curl_easy_init();
+
+        if (!curl) {
+            fprintf(stderr, "Curl initialization failed\n");
+            return NULL;
         }
 
-        else {
-            pthread_mutex_lock(&thirdMutex);
-            append(&answerQueue, workingURL, depth);
-            pthread_mutex_unlock(&thirdMutex);
+        curl_easy_setopt(curl, CURLOPT_URL, workingURL);
 
-            CURL* curl = curl_easy_init();
+        struct MemoryStruct chunk;
+        chunk.memory = NULL;
+        chunk.size = 0;
 
-            if (!curl) {
-                fprintf(stderr, "Curl initialization failed\n");
-                return NULL;
-            }
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
 
-            curl_easy_setopt(curl, CURLOPT_URL, workingURL);
-
-            struct MemoryStruct chunk;
-            chunk.memory = NULL;
-            chunk.size = 0;
-
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
-
-            CURLcode result = curl_easy_perform(curl);
-            if (result != CURLE_OK) {
-                fprintf(stderr, "Download failed: %s\n", curl_easy_strerror(result));
-                curl_easy_cleanup(curl);
-                free(chunk.memory);
-                return NULL;
-            }
-
-            char* html_content = chunk.memory;
-
-            char* line = strtok(html_content, "\n");
-
-            while (line != NULL) {
-                char answer[300];
-                if (extractURL(line, answer) == true) {
-                    if (!searchURL(&myTrie, answer))
-                    {
-                        pthread_mutex_lock(&fourthMutex);
-                        append(&workingQueue, answer, depth+1);
-                        insertURL(&myTrie, answer);
-                        pthread_mutex_unlock(&fourthMutex);
-                    }
-                }
-                line = strtok(NULL, "\n");
-            }
-            free(chunk.memory);
+        CURLcode result = curl_easy_perform(curl);
+        if (result != CURLE_OK) {
+            fprintf(stderr, "Download failed: %s\n", curl_easy_strerror(result));
             curl_easy_cleanup(curl);
+            free(chunk.memory);
+            return NULL;
         }
+
+        char* html_content = chunk.memory;
+
+        char* line = strtok(html_content, "\n");
+
+        while (line != NULL) {
+            char answer[300];
+            if (extractURL(line, answer) == true) {
+                pthread_mutex_lock(&secuirty);
+                if (!searchURL(&myTrie, answer))
+                {
+                    append(&workingQueue, answer, depth + 1);
+                    insertURL(&myTrie, answer);
+                }
+                pthread_mutex_unlock(&secuirty);
+            }
+            line = strtok(NULL, "\n");
+        }
+        free(chunk.memory);
+        curl_easy_cleanup(curl);
     }
-    
 }
 
 bool extractURL(char* url, char* answer) {
