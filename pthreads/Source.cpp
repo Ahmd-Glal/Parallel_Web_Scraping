@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     CURL* curl = curl_easy_init();
 
     if (!curl) {
-        fprintf(stderr, "Curl initialization failed\n");
+        fprintf(stderr, "Curl initialization failed due to resource limitations\n");
         return EXIT_FAILURE;
     }
 
@@ -149,8 +149,8 @@ void* parallelScraping(void* rank) {
         CURL* curl = curl_easy_init();
 
         if (!curl) {
-            fprintf(stderr, "Curl initialization failed\n");
-            return NULL;
+            fprintf(stderr, "Curl initialization failed due to resource limitations\n");
+            exit(EXIT_FAILURE);
         }
 
         curl_easy_setopt(curl, CURLOPT_URL, workingURL);
@@ -164,10 +164,10 @@ void* parallelScraping(void* rank) {
 
         CURLcode result = curl_easy_perform(curl);
         if (result != CURLE_OK) {
-            fprintf(stderr, "Download failed: %s\n", curl_easy_strerror(result));
+            fprintf(stderr, "Download failed: due to cite restrictions\n");
             curl_easy_cleanup(curl);
             free(chunk.memory);
-            return NULL;
+            continue;
         }
 
         char* html_content = chunk.memory;
