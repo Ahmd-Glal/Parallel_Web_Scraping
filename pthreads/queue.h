@@ -45,7 +45,6 @@ void serve(queue* q, char *url,int *depth) {
     queueElement* temp = q->front;
     *depth = temp->depth;
     strcpy(url, temp->url);
-    printf("%s\n", url);
     q->front = temp->next;
     free(temp);
     if (q->front == NULL) {
@@ -76,7 +75,7 @@ void clearQueue(queue* q) {
 void traverse(queue* q) {
     queueElement* temp = q->front;
     while (temp != NULL) {
-        printf("%s %d\n", temp->url,temp->depth);
+        printf("%s\n", temp->url);
         temp = temp->next;
     }
 }
