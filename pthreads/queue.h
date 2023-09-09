@@ -41,8 +41,18 @@ void append(queue* q, const char* url,int depth) {
     q->size++;
 }
 
+
+int queueEmpty(queue* q) {
+    return q->size == 0;
+}
+
+int queueSize(queue* q) {
+    return q->size;
+}
+
 void serve(queue* q, char *url,int *depth) {
     queueElement* temp = q->front;
+    if (queueEmpty(q))printf("lock\n");
     *depth = temp->depth;
     strcpy(url, temp->url);
     q->front = temp->next;
@@ -51,14 +61,6 @@ void serve(queue* q, char *url,int *depth) {
         q->rear = NULL;
     }
     q->size--;
-}
-
-int queueEmpty(queue* q) {
-    return q->size == 0;
-}
-
-int queueSize(queue* q) {
-    return q->size;
 }
 
 void clearQueue(queue* q) {

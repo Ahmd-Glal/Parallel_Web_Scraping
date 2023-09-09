@@ -21,7 +21,7 @@ https://www.lettercount.com/
 https://github.com/yusuzech/r-web-scraping-cheat-sheet
 */
 
-char RootURL[] = "https://www.lettercount.com/";
+char RootURL[] = "https://github.com/yusuzech/r-web-scraping-cheat-sheet";
 
 int* allowedNumberOfWork;
 int maxAllowed = 40;
@@ -174,10 +174,11 @@ size_t write_data(void* ptr, size_t size, size_t count, void* userdata) {
     memcpy(&(newMemory[mem->size]), ptr, totalSize);
     mem->memory = newMemory;
     mem->size += totalSize;
-    mem->memory[mem->size] = '\0'; // Use single quotes for character literals
+    mem->memory[mem->size] = '\0';
 
     return totalSize;
 }
+
 int numberOfAwaitedThreads = 0, done = 0;
 void* parallelScraping(void* rank) {
     int myRank = (int)rank;
@@ -185,13 +186,7 @@ void* parallelScraping(void* rank) {
     for (int i = 0; i < amountOfWork; i++) {
         char workingURL[301];
         int depth;
-        /*
-        pthread_mutex_lock(&secuirty);
 
-        serve(&workingQueue, workingURL, &depth);
-        append(&answerQueue, workingURL, depth);
-
-        pthread_mutex_unlock(&secuirty);*/
         pthread_mutex_lock(&secuirty);
         if (queueEmpty(&workingQueue)) {
 
@@ -201,7 +196,7 @@ void* parallelScraping(void* rank) {
             }
             else {
                 pthread_mutex_unlock(&secuirty);
-                sem_wait(&urlSemaphore);//4 threads waiting
+                sem_wait(&urlSemaphore);
                 pthread_mutex_lock(&secuirty);
                 numberOfAwaitedThreads--;
             }
@@ -215,6 +210,10 @@ void* parallelScraping(void* rank) {
         append(&answerQueue, workingURL, depth);
 
         pthread_mutex_unlock(&secuirty);
+
+        if (depth == depthLimit) {
+            continue;
+        }
 
         CURL* curl = curl_easy_init();
         if (!curl) {
@@ -251,12 +250,11 @@ void* parallelScraping(void* rank) {
         while (line != NULL) {
             char answer[MAX_URL_LENGTH];
             if (extractURL(line, answer, MAX_URL_LENGTH)) {
-
+                int num = numberOfAwaitedThreads;
                 pthread_mutex_lock(&secuirty);
                 if (!searchURL(&myTrie, answer)) {
-                    int id = (int)rank + 1;
-                    append(&answerQueue, answer, id);
-                    sem_post(&urlSemaphore);
+                    append(&workingQueue, answer, depth + 1);
+                    if (num) { sem_post(&urlSemaphore);}
                     insertURL(&myTrie, answer);
                 }
                 pthread_mutex_unlock(&secuirty);
