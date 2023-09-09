@@ -21,12 +21,12 @@ https://www.lettercount.com/
 https://github.com/yusuzech/r-web-scraping-cheat-sheet
 */
 
-char RootURL[] = "https://github.com/yusuzech/r-web-scraping-cheat-sheet";
+char RootURL[] = "https://www.facebook.com";
 
 int* allowedNumberOfWork;
 int maxAllowed = 40;
 
-int depthLimit = 4;
+int depthLimit = 10;
 const int threadCount = 10;
 
 queue workingQueue;
@@ -218,7 +218,7 @@ void* parallelScraping(void* rank) {
         CURL* curl = curl_easy_init();
         if (!curl) {
             fprintf(stderr, "Curl initialization failed due to resource limitations\n");
-            return NULL;
+            continue;
         }
 
         curl_easy_setopt(curl, CURLOPT_URL, RootURL);
@@ -235,7 +235,7 @@ void* parallelScraping(void* rank) {
             fprintf(stderr, "Download failed: %s\n", curl_easy_strerror(result));
             curl_easy_cleanup(curl);
             free(chunk.memory);
-            return NULL;
+            continue;
         }
 
         char* html_content = chunk.memory;
@@ -243,7 +243,7 @@ void* parallelScraping(void* rank) {
             fprintf(stderr, "Download failed: Empty content\n");
             curl_easy_cleanup(curl);
             free(chunk.memory);
-            return NULL;
+            continue;
         }
 
         char* line = strtok(html_content, "\n");
